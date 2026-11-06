@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+dist/
+run/
+captures/
+reports/
+*.jsonl
+*.jsonl.gz
+*.csv.gz
+# the exchange client is private to the event and is never committed
+optibook/

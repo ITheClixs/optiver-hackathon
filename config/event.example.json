@@ -1,0 +1,43 @@
+{
+  "position_limit": 100,
+  "outstanding_limit": 200,
+  "book_includes_own": true,
+  "pairs": [
+    [
+      "PHILIPS_A",
+      "PHILIPS_B"
+    ]
+  ],
+  "news_training_csv": "training.csv",
+  "llm_url": "https://api.anthropic.com/v1/messages",
+  "llm_model": "claude-haiku-5-5",
+  "llm_key_env": "LLM_KEY",
+  "llm_style": "anthropic",
+  "params": {
+    "size": 10
+  },
+  "option_vol": 3.0,
+  "index_weights": {
+    "ASML": 908.06,
+    "AAPL": 129.24,
+    "SAP": 124.78,
+    "TSLA": 2245.39,
+    "NVDA": 953.21
+  },
+  "news_aliases": {
+    "NVDA": [
+      "nvda",
+      "nvidia"
+    ],
+    "PFE": [
+      "pfe",
+      "pfizer"
+    ]
+  },
+  "update": {
+    "repo": "owner/repo",
+    "issue": 1,
+    "freeze_at": "2026-11-06T21:00:00+01:00",
+    "token_file": "~/.optibook_github"
+  }
+}
