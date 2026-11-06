@@ -2,6 +2,8 @@
 
 We are **ABZ Trading**, a team of four that competed in the **Optiver Coding Challenge at ETH Zürich on 6 November 2026**. It was a six-hour hackathon on **Optibook**, Optiver's simulated exchange, where each team's Python bot trades live against about 30 other teams and against Optiver's own market-making and taker bots.
 
+**In the first round, our bot took first place on the live leaderboard. The organisers then reset the market and started the next round.**
+
 This repo is the system we built and ran there:
 - the trading bot we submitted, which runs as one stdlib-only Python 3.10 file built from `src/otk/`;
 - the research and backtesting tools we used before and during the event to choose its strategies and parameters.
