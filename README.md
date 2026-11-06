@@ -1,8 +1,8 @@
-# optibook-bot
+# optiver-hackathon
 
 An automated trading bot for **Optibook**, Optiver's simulated exchange, built for the Optiver Coding Challenge at ETH Zürich on 6 November 2026. It traded eight stocks live for six hours against about 30 teams and Optiver's own market-making and taker bots. In the challenge's first trading round it **ranked #1 on the live leaderboard**.
 
-The bot runs as one stdlib-only Python 3.10 file, built from the package in `src/otk/`.
+The bot runs as one stdlib-only Python 3.10 file, built from the package in `src/otk/`. The repo also holds the research and backtesting tools used to choose its strategies and parameters.
 
 ## Architecture
 
@@ -69,11 +69,30 @@ These are built for other formats and are switched off unless the exchange lists
   - a CUSUM incumbent gate.
 - **`updater.py`:** pulls released builds and parameters from a repository branch into the running bot, and rolls back automatically on failure.
 
+## Research and backtesting tools
+
+These ran on laptops against recorded markets, never inside the live bot.
+
+| Tool | What it answers |
+|---|---|
+| `booklab.py`, `scripts/book_lab.py` | How a book behaves: regime, imbalance, the passive fill surface, arbitrage windows, and what each level of latency is worth |
+| `behaviour.py`, `scripts/analyze_capture.py` | Capture report: spreads, sizes, reversion half-life, lead-lag between instruments, jumps |
+| `scripts/backtest_grid.py` | Parameter grid through the real engine. It picks a plateau (the median of neighbours), never the single best point |
+| `overfit.py` | Probability of backtest overfitting (CSCV), deflated Sharpe ratio, minimum backtest length |
+| `online_model.py` | Online ridge regression bounded in ticks, with a skill gate. Six hours give only about 900 to 2,700 independent 2-second labels, so this is the ML ceiling: no trees or deep nets live |
+| `scripts/switchback.py` | Paired switchback test of parameter variants in time slices with washouts |
+| `scripts/pick_params.py` | Chooses from a fixed list of changes by replaying the last hour, with no model |
+| `scripts/reversion_scan.py` | Would fading have paid on this capture, and would the paper-trading rule have caught it |
+| `scripts/sim_tournament.py` | Strategy stack against simulated bots across seeds: mechanics and robustness, not parameter values |
+| `scripts/bench_tick.py` | Time per engine tick |
+| `scripts/emergency_bot.py` | A minimal standalone quoting bot that shares no code with the main bot, for when the main bot cannot run |
+| `scripts/fetch_public_data.sh` | Downloads public Optibook order-book data to test on |
+
 ## Run it
 
 ```bash
 uv sync
-uv run pytest -q                                                     # 933 tests
+uv run pytest -q                                                     # 1,115 tests
 uv run python scripts/run_bot.py --sim dual --adverse --seconds 30    # the full stack on the built-in simulator
 uv run python scripts/kill_drill.py                                  # every kill switch, in seconds
 uv run python scripts/make_single_file.py --out dist/optibook_bot.py  # the single file to upload
@@ -97,9 +116,11 @@ On the exchange's environment:
 
 ```
 src/otk/       engine, adapter, strategies, lead-lag, schedule, quoting, fair value, risk, budget, kill,
-               autopilot, params, replay, evaluation, updater, supervisor (main.py)
+               autopilot, params, replay, evaluation, updater, supervisor (main.py),
+               book lab, behaviour report, overfitting statistics, online ridge
 src/otk/sim/   exchange simulator, bots, scenarios, harness
-scripts/       build, simulator run, kill drill, live parameter and kill tools, recorders
+scripts/       build, simulator run, kill drill, live parameter and kill tools, recorders,
+               backtest grid, switchback, replay picks, capture analysis, emergency bot
 config/        example event settings and presets per format
 tests/         unit and integration tests
 ```

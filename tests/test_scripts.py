@@ -11,12 +11,14 @@ from types import SimpleNamespace
 import pytest
 
 from otk.adapter import LiveExchange
+from otk.allocator import SwitchbackSchedule
 from otk.engine import Engine, EngineConfig
 from otk.instruments import Universe
 from otk.params import write_params_atomic
 from otk.recorder import JsonlRecorder
 from otk.sim.exchange import SimExchange, SimMarket
 from otk.sim.harness import make_engine
+from otk.sim.scenarios import quiet_market
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -49,6 +51,16 @@ def test_run_bot_sim_reports_clean_session(capsys):
     assert json.loads(capsys.readouterr().out)["limit_breaches"] == 0
 
 
+def test_run_bot_sim_writes_a_capture_that_analyses(tmp_path, capsys):
+    run_bot = load_script("run_bot")
+    analyze = load_script("analyze_capture")
+    path = tmp_path / "cap.jsonl"
+    run_bot.main(["--sim", "quiet", "--seconds", "20", "--capture", str(path), "--params", "/nope"])
+    capsys.readouterr()
+    report_path = tmp_path / "report.json"
+    assert analyze.main([str(path), "--out", str(report_path)]) == 0
+    assert "instrument" in capsys.readouterr().out
+    assert json.loads(report_path.read_text())["instruments"]
 
 
 def test_event_config_sets_engine_limits(tmp_path):
@@ -121,16 +133,79 @@ def test_flatten_reports_what_it_could_not_close():
     assert flatten.flatten(exchange, attempts=2) == {"A": 30}
 
 
+def test_backtest_grid_reports_plateau_and_gates(tmp_path, capsys):
+    grid = load_script("backtest_grid")
+    path = tmp_path / "cap.jsonl"
+    capture(quiet_market(2, ("A",)), path, seconds=60.0)
+    out = tmp_path / "report.json"
+    code = grid.main(
+        [str(path), "--grid", json.dumps({"base_spread_ticks": [2, 4], "size": [5, 10]}), "--out", str(out)]
+    )
+    assert code == 0
+    report = json.loads(out.read_text())
+    assert report["n_configs"] == 4
+    assert report["gates"]["decision"]["verdict"] in ("GO", "GO-REDUCED", "NO-GO")
+    assert report["chosen"]["size"] in (5, 10)
 
 
+def test_plateau_prefers_a_broad_hill_over_a_lone_spike():
+    grid = load_script("backtest_grid")
+    table = {"a": [1, 2, 3, 4, 5]}
+    pnl = {1: 10.0, 2: 10.0, 3: 10.0, 4: 0.0, 5: 100.0}
+    rows = [{"params": {"a": v}, "pnl": pnl[v]} for v in table["a"]]
+    scores = grid.plateau_scores(rows, table)
+    assert scores[1] > scores[4]
 
 
+def test_switchback_rotates_params_and_measures_each_slice(tmp_path):
+    switchback = load_script("switchback")
+    status = tmp_path / "status.json"
+    params = tmp_path / "params.json"
+    fake = {"t": 0.0, "pnl": 0.0}
+
+    def clock():
+        return fake["t"]
+
+    def sleep(seconds):
+        fake["t"] += seconds
+        current = json.loads(params.read_text())["size"]
+        fake["pnl"] += seconds * (2.0 if current == 20 else 1.0)
+        write_status(fake["pnl"])
+
+    def write_status(pnl):
+        status.write_text(json.dumps({"pnl": pnl}))
+
+    write_status(0.0)
+    variants = {"big": {"size": 20}, "small": {"size": 5}}
+    schedule = SwitchbackSchedule(sorted(variants), 10.0, 2.0, 0.0, seed=3)
+    slices = switchback.run_schedule(variants, schedule, 120.0, params, status, clock, sleep)
+    big = [s["pnl"] for s in slices if s["variant"] == "big"]
+    small = [s["pnl"] for s in slices if s["variant"] == "small"]
+    assert big and small
+    assert min(big) > max(small)
 
 
+def test_switchback_read_pnl_tolerates_a_missing_file(tmp_path):
+    switchback = load_script("switchback")
+    assert switchback.read_pnl(tmp_path / "absent.json") is None
 
 
+def test_sim_tournament_is_clean(capsys):
+    tournament = load_script("sim_tournament")
+    assert tournament.main(["--scenarios", "dual,news", "--seeds", "1", "--seconds", "20"]) == 0
+    rows = json.loads(capsys.readouterr().out)
+    assert {row["scenario"] for row in rows} == {"dual", "news"}
 
 
+def test_bundle_runs_without_the_source_tree(tmp_path):
+    bundle = load_script("make_bundle")
+    output = bundle.build(tmp_path / "otk_bot.pyz")
+    result = subprocess.run(
+        [sys.executable, "-I", str(output), "--sim", "quiet", "--seconds", "5", "--params", "/nope"],
+        capture_output=True, text=True, cwd=tmp_path, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "limit_breaches" in result.stdout
 
 
 class FakeClient:
