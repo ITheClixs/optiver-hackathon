@@ -52,7 +52,7 @@ Most bots treat prices as a random process to forecast. We found that this marke
 4. **An online falsification test.** The script is a hypothesis, and each leg is a test of it. At a leg's exit the bot checks whether the price moved at least 2 ticks against the position. Two such legs in a row reject the path, and the strategy stands down for the rest of the round. A flat leg does not count as wrong: one flat leg in a source round would otherwise have given up the edge in every leg after it.
 5. **Reset-safe.** On an exchange reset the clock clears and waits for the new round's first trade. A start time pinned by hand belongs to its own round and is ignored after a reset.
 
-In the last rounds of the day the path changed, as two early legs failed to match. We set the schedule's size to 0 by hand at that point, and the stand-down rule stayed on as the automatic backstop for the final.
+In the last rounds of the day the path changed: the scripted moves at 78, 406 and 652 s never came. We set the schedule's size to 0 by hand at that point, and the stand-down rule stayed on as the automatic backstop for the final.
 
 ## Two more ideas worth a look
 
