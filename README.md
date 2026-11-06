@@ -1,8 +1,40 @@
 # optiver-hackathon
 
-An automated trading bot for **Optibook**, Optiver's simulated exchange, built for the Optiver Coding Challenge at ETH Zürich on 6 November 2026. It traded eight stocks live for six hours against about 30 teams and Optiver's own market-making and taker bots. In the challenge's first trading round it **ranked #1 on the live leaderboard**.
+We are **ABZ Trading**, a team of four that competed in the **Optiver Coding Challenge at ETH Zürich on 6 November 2026**. It was a six-hour hackathon on **Optibook**, Optiver's simulated exchange, where each team's Python bot trades live against about 30 other teams and against Optiver's own market-making and taker bots.
 
-The bot runs as one stdlib-only Python 3.10 file, built from the package in `src/otk/`. The repo also holds the research and backtesting tools used to choose its strategies and parameters.
+This repo is the system we built and ran there:
+- the trading bot we submitted, which runs as one stdlib-only Python 3.10 file built from `src/otk/`;
+- the research and backtesting tools we used before and during the event to choose its strategies and parameters.
+
+## The challenge
+
+- **Instruments:** eight US tech stocks (AMD, AVGO, CRWV, MU, NBIS, NVDA, SNDK, VRT), tick size 0.1, position limits per stock.
+- **Format:** several practice rounds through the afternoon, each started by an exchange reset, then a final round scored on PnL.
+- **Rules:** one bot per team, one exchange session, and a message-rate limit.
+- **Unknown in advance:** the format was announced only on the day. So we prepared a bot that reads the listed instruments and picks its strategies by itself, ready for dual listings, ETFs, futures, options and news.
+
+## What we did on the day
+
+1. **Measured the market before trading it.** We probed the API, recorded the order books, and recorded the public dashboard feed, which shows every trade with buyer and seller names.
+2. **Profiled Optiver's bots from that tape.**
+   - The house noise takers lose about 0.7 to 1.0 ticks per lot within 5 s, which is the flow a market maker earns from.
+   - A house sweeper clears a whole side of the book and moves the price 24 to 58 ticks in under a second, with no warning in the book.
+   - So we quoted on the follower stocks and pulled quotes from the leaders, which are the stocks that move first.
+3. **Found lead-lag pairs.** AVGO leads NBIS, MU leads CRWV, and NVDA leads SNDK. When a leader moves, the follower's quotes stay stale for a moment. Our lead-lag strategy takes those stale quotes, and it became our main source of PnL. Counterparty analysis showed which participants were the slow quoters.
+4. **Found that the market followed a script.** After each reset the house bots replayed the same price path: 21 of 24 large moves recurred within 3 s. We built, tested and shipped a schedule trader during the event. It trades the known moves, and stands down by itself when a round leaves the path, which the later rounds did.
+5. **Handled the rounds' resets.** After each exchange reset the bot drops all price memory and waits for the real open before quoting.
+6. **Improved the bot live, under statistical discipline.**
+   - Every idea went through replay on that day's recording, an independent check, then a paired live test, and a pre-registered rule decided adoption, defaulting to no change.
+   - About 150 trials were counted, because each extra test raises the bar for the next.
+   - A small team of AI coding agents analysed the recordings and proposed changes through tested pull requests and bounded parameters. All trading stayed in the deterministic bot, and no agent ever placed an order.
+
+**Tried and dropped, on the evidence:**
+- **Fading moves (mean reversion).** It lost on every hour we tested, so it stayed off.
+- **A tell before the house sweeps.** Prices showed no drift in the 30 s before a sweep.
+- **Pulling every leader when one jumps.** Only 1 of 37 leader jumps moved more than one stock.
+- **Gradient-boosted trees and deep nets live.** Six hours give only about 900 to 2,700 independent 2-second labels, so a bounded online ridge model was the ceiling.
+
+**What we would do next:** scale passive quote size with the rate of aggressive flow. The biggest moves of the final came from flow that paid whoever had size resting in the book.
 
 ## Architecture
 
