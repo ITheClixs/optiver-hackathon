@@ -36,6 +36,35 @@ This repo is the system we built and ran there:
 
 **What we would do next:** scale passive quote size with the rate of aggressive flow. The biggest moves of the final came from flow that paid whoever had size resting in the book.
 
+## The unusual part: trading a market that replays itself
+
+Most bots treat prices as a random process to forecast. We found that this market was partly **deterministic**, and built a strategy that trades it as a replay, while testing online whether the replay still holds.
+
+**The observation.** Optiver's sweeper bot hit the same leaders at the same second after each round's first trade.
+- **Timing:** we timed 16 sweeps across two rounds to 0.1 s. One round's sweeps differed from the other's by a **constant 0.26 s (standard deviation 0.07 s)**. The same clock, slightly shifted.
+- **Across long rounds:** a later round equalled an earlier one plus a fixed 4,705.24 s offset, within ±0.5 s, on 15 of 17 moves.
+- **Spillover:** after each sweep, its follower stock moved too, and teams raced to take the follower's stale quotes.
+
+**The mechanism** (`src/otk/schedule.py`):
+1. **A clock anchored to the market, not the wall.** Round start `t0` is the first public trade after a reset, detected because trade ids restart near 1. Every leg is an offset from `t0`: a time, a stock, a direction and a size.
+2. **Enter just before, exit just after.** Each leg enters a set fraction of a second before its scripted sweep, since an entry after the sweep pays the moved price, and closes a few seconds after. The table's times sit 0.3 s early for that reason. Our market-making quotes on that stock are pulled in between, so the sweep can't hit them.
+3. **Followers ride their leader's leg.** A follower is included only where it moved at least 10 ticks in the source round, because thinner stale volume did not pay for crossing the spread.
+4. **An online falsification test.** The script is a hypothesis, and each leg is a test of it. At a leg's exit the bot checks whether the price moved at least 2 ticks against the position. Two such legs in a row reject the path, and the strategy stands down for the rest of the round. A flat leg does not count as wrong: one flat leg in a source round would otherwise have given up the edge in every leg after it.
+5. **Reset-safe.** On an exchange reset the clock clears and waits for the new round's first trade. A start time pinned by hand belongs to its own round and is ignored after a reset.
+
+This is what happened in the final rounds of the day, when the organisers changed the path: the stand-down rule kept the strategy out, instead of trading a script that no longer existed.
+
+## Two more ideas worth a look
+
+- **Lead-lag at a learned, non-obvious ratio** (`src/otk/leadlag.py`).
+  - On the practice exchange, three pairs moved with a 60 s return correlation of 1.00, with the follower 1 to 3 s behind. They moved at a fixed ratio that was neither 1 nor the ratio of their prices.
+  - Nothing in the instrument list reveals the pairs, so the bot learns them while running, and always watches.
+  - It does two things: it centres the follower's quotes on where the leader says the price is going, so resting orders are never stale, and it takes the follower by immediate-or-cancel when the gap exceeds the half spread.
+  - The gap closes in about 2 s, too fast and too small to fade, so the bot never trades it the other way.
+- **One code path for paper trading and backtest** (`src/otk/reversion.py`).
+  - A strategy we doubted, mean reversion, could only switch itself on after paper trades at executable prices had paid after costs. The paper trades buy at the ask, sell at the bid, pay a haircut per fill, and take the live strategy's exits.
+  - The same code scans a recording offline. So the live decision and the backtest cannot disagree about what reversion earned. It never earned, so it never went live.
+
 ## Architecture
 
 ```mermaid
