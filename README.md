@@ -4,6 +4,12 @@ We are **ABZ Trading**, a team of four that competed in the **Optiver Coding Cha
 
 **In the first round, our bot took first place on the live leaderboard. The organisers then reset the market and started the next round.**
 
+| Round 1 leaderboard: ABZ Trading in first place | Round 1 competition view: our PnL curve |
+|---|---|
+| ![Optibook leaderboard during round 1, showing ABZ Trading in first place at a PnL of 475](assets/round1-leaderboard-rank.jpg) | ![Optibook competition view during round 1, showing ABZ Trading first at a PnL of +472.3 with a rising PnL curve](assets/round1-leaderboard-pnl.jpg) |
+
+*Photos of the official Optibook dashboard taken during round 1.*
+
 This repo is the system we built and ran there:
 - the trading bot we submitted, which runs as one stdlib-only Python 3.10 file built from `src/otk/`;
 - the research and backtesting tools we used before and during the event to choose its strategies and parameters.
